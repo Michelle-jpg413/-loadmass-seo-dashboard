@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loadmass — SEO & Keyword Gauge</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root{
+    --steel-900:#14181c;
+    --steel-800:#1c2228;
+    --steel-700:#262e36;
+    --steel-600:#374049;
+    --gauge-amber:#f0a13e;
+    --gauge-green:#5fb88a;
+    --gauge-red:#d9684f;
+    --gauge-blue:#5b9bd5;
+    --paper:#e9e4d8;
+    --paper-dim:#a9a294;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--steel-900);color:var(--paper);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* HEADER */
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--steel-700);padding-bottom:18px;margin-bottom:26px;flex-wrap:wrap;gap:16px;}
+  .brand-mark{font-family:'Courier New',monospace;letter-spacing:3px;font-size:12px;color:var(--gauge-amber);text-transform:uppercase;}
+  h1{margin:4px 0 6px;font-size:34px;font-weight:800;letter-spacing:-0.5px;color:#fff;}
+  .sub{color:var(--paper-dim);font-size:13.5px;max-width:520px;line-height:1.5;}
+  .header-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+  .updated{font-family:'Courier New',monospace;font-size:12px;color:var(--paper-dim);}
+  .updated b{color:var(--gauge-amber);}
+
+  /* GSC CONNECTION BADGE */
+  .gsc-badge{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:.3px;border:1px solid var(--steel-600);background:var(--steel-800);cursor:pointer;transition:border-color .15s;}
+  .gsc-badge:hover{border-color:var(--gauge-amber);}
+  .gsc-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--steel-600);}
+  .gsc-badge.connected .dot{background:var(--gauge-green);box-shadow:0 0 6px var(--gauge-green);}
+  .gsc-badge.connected{border-color:rgba(95,184,138,.35);}
+  .gsc-badge.loading .dot{background:var(--gauge-amber);animation:pulse .8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:26px;}
+  .stat{background:var(--steel-800);border:1px solid var(--steel-700);border-radius:6px;padding:14px 16px;}
+  .stat .num{font-size:26px;font-weight:800;color:#fff;}
+  .stat .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--paper-dim);margin-top:2px;}
+  .stat.green .num{color:var(--gauge-green);}
+  .stat.amber .num{color:var(--gauge-amber);}
+  .stat.red .num{color:var(--gauge-red);}
+  .stat.blue .num{color:var(--gauge-blue);}
+  .stat .sub-num{font-size:11px;color:var(--paper-dim);margin-top:1px;}
+
+  /* TABS */
+  .tabs{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;}
+  .tab{padding:9px 16px;background:var(--steel-800);border:1px solid var(--steel-700);color:var(--paper-dim);font-size:13px;font-weight:600;cursor:pointer;border-radius:3px 3px 0 0;letter-spacing:.3px;}
+  .tab.active{background:var(--steel-700);color:var(--gauge-amber);border-color:var(--gauge-amber);}
+  .tab.gsc-tab{position:relative;}
+  .tab.gsc-tab .live-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--gauge-green);position:absolute;top:6px;right:6px;box-shadow:0 0 5px var(--gauge-green);}
+  .tab.gsc-tab.has-data .live-dot{display:block;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  /* SECTION TITLE */
+  .section-title{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--gauge-amber);font-weight:700;margin:30px 0 12px;display:flex;align-items:center;gap:10px;}
+  .section-title::after{content:"";flex:1;height:1px;background:var(--steel-700);}
+
+  /* TABLES */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;padding:9px 10px;background:var(--steel-700);color:var(--paper-dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;cursor:pointer;user-select:none;}
+  th:hover{color:var(--paper);}
+  th .sort-arrow{opacity:.4;margin-left:4px;}
+  th.sorted .sort-arrow{opacity:1;color:var(--gauge-amber);}
+  td{padding:9px 10px;border-bottom:1px solid var(--steel-800);vertical-align:top;}
+  tr:hover td{background:rgba(255,255,255,.02);}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .pill.win{background:rgba(95,184,138,.18);color:var(--gauge-green);}
+  .pill.watch{background:rgba(240,161,62,.18);color:var(--gauge-amber);}
+  .pill.gap{background:rgba(217,104,79,.18);color:var(--gauge-red);}
+  .note{color:var(--paper-dim);font-size:12.5px;}
+
+  /* GSC DATA CELLS */
+  .pos-badge{display:inline-block;font-family:'Courier New',monospace;font-size:12px;font-weight:700;padding:2px 7px;border-radius:3px;min-width:32px;text-align:center;}
+  .pos-badge.top10{background:rgba(95,184,138,.18);color:var(--gauge-green);}
+  .pos-badge.top30{background:rgba(240,161,62,.18);color:var(--gauge-amber);}
+  .pos-badge.beyond{background:rgba(217,104,79,.18);color:var(--gauge-red);}
+  .pos-badge.none{background:var(--steel-700);color:var(--paper-dim);}
+  .gsc-num{font-family:'Courier New',monospace;font-size:12.5px;color:var(--paper);}
+  .gsc-dim{color:var(--paper-dim);font-size:11.5px;}
+  td.gsc-cell{white-space:nowrap;}
+
+  /* EDITABLE */
+  .editable{cursor:text;border-bottom:1px dashed transparent;}
+  .editable:hover{border-bottom:1px dashed var(--gauge-amber);}
+  .editable:focus{outline:none;background:var(--steel-700);}
+
+  /* COMP GRID */
+  .comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+  .comp-card{background:var(--steel-800);border:1px solid var(--steel-700);border-radius:6px;padding:12px 14px;}
+  .comp-card h4{margin:0 0 4px;font-size:14px;color:#fff;}
+  .comp-card .domain{font-size:11px;color:var(--gauge-amber);font-family:'Courier New',monospace;}
+  .comp-card .blurb{font-size:12px;color:var(--paper-dim);margin-top:6px;line-height:1.45;}
+
+  /* GAP ITEMS */
+  .gap-item{background:var(--steel-800);border-left:3px solid var(--gauge-red);border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;transition:opacity .2s;}
+  .gap-item h4{margin:0 0 4px;font-size:14.5px;color:#fff;transition:color .2s;}
+  .gap-item p{margin:0;font-size:13px;color:var(--paper-dim);line-height:1.5;}
+  .gap-item .priority{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gauge-red);font-weight:700;}
+  .gap-item .gap-body{flex:1;}
+  .gap-item.done{border-left-color:var(--gauge-green);opacity:.6;}
+  .gap-item.done h4{color:var(--paper-dim);text-decoration:line-through;}
+  .gap-item.done .priority{color:var(--gauge-green);}
+  .gap-item.done .priority::before{content:"✓ Done · ";}
+  .done-btn{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:2px solid var(--steel-600);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;padding:0;margin-top:2px;transition:all .15s;}
+  .done-btn:hover{border-color:var(--gauge-green);color:var(--gauge-green);}
+  .gap-item.done .done-btn{background:var(--gauge-green);border-color:var(--gauge-green);color:#fff;}
+
+  /* BUTTONS */
+  .btnrow{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap;align-items:center;}
+  button{background:var(--steel-700);color:var(--paper);border:1px solid var(--steel-600);padding:8px 14px;border-radius:4px;font-size:12.5px;cursor:pointer;font-weight:600;}
+  button:hover{border-color:var(--gauge-amber);color:var(--gauge-amber);}
+  button.primary{background:var(--gauge-amber);color:var(--steel-900);border:none;}
+  button.primary:hover{filter:brightness(1.08);color:var(--steel-900);}
+  button.danger{background:transparent;border-color:var(--gauge-red);color:var(--gauge-red);}
+  button.danger:hover{background:rgba(217,104,79,.12);}
+
+  /* FILTER ROW */
+  .filter-row{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;}
+  .filter-row input{background:var(--steel-800);border:1px solid var(--steel-600);color:var(--paper);padding:7px 12px;border-radius:4px;font-size:13px;width:240px;}
+  .filter-row input:focus{outline:none;border-color:var(--gauge-amber);}
+  .filter-row input::placeholder{color:var(--steel-600);}
+  .seg-btns{display:flex;gap:0;}
+  .seg-btn{padding:7px 14px;background:var(--steel-800);border:1px solid var(--steel-600);color:var(--paper-dim);font-size:12px;font-weight:600;cursor:pointer;}
+  .seg-btn:first-child{border-radius:4px 0 0 4px;}
+  .seg-btn:last-child{border-radius:0 4px 4px 0;}
+  .seg-btn.active{background:var(--gauge-amber);color:var(--steel-900);border-color:var(--gauge-amber);}
+  .seg-btn + .seg-btn{border-left:none;}
+
+  /* SITE SELECTOR */
+  select{background:var(--steel-800);border:1px solid var(--steel-600);color:var(--paper);padding:7px 12px;border-radius:4px;font-size:13px;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--gauge-amber);}
+
+  /* GSC METRICS ROW */
+  .gsc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+  .gsc-metric{background:var(--steel-800);border:1px solid var(--steel-700);border-radius:6px;padding:12px 14px;}
+  .gsc-metric .m-num{font-size:22px;font-weight:800;color:#fff;font-family:'Courier New',monospace;}
+  .gsc-metric .m-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--paper-dim);margin-top:2px;}
+
+  /* SETUP OVERLAY */
+  #setup-overlay{display:none;position:fixed;inset:0;background:rgba(20,24,28,.92);z-index:100;overflow-y:auto;}
+  #setup-overlay.visible{display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;}
+  .setup-box{background:var(--steel-800);border:1px solid var(--steel-600);border-radius:8px;padding:32px 36px;max-width:600px;width:100%;}
+  .setup-box h2{margin:0 0 6px;font-size:22px;color:#fff;}
+  .setup-box .setup-sub{color:var(--paper-dim);font-size:13.5px;margin-bottom:24px;line-height:1.5;}
+  .step{display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;}
+  .step-num{flex-shrink:0;width:24px;height:24px;background:var(--gauge-amber);color:var(--steel-900);border-radius:50%;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .step-body{flex:1;}
+  .step-body strong{display:block;font-size:13.5px;color:#fff;margin-bottom:3px;}
+  .step-body p{margin:0;font-size:13px;color:var(--paper-dim);line-height:1.5;}
+  .step-body a{color:var(--gauge-amber);text-decoration:none;}
+  .step-body a:hover{text-decoration:underline;}
+  .origin-box{font-family:'Courier New',monospace;font-size:12px;background:var(--steel-700);color:var(--gauge-amber);padding:6px 10px;border-radius:3px;margin-top:6px;word-break:break-all;}
+  .setup-input-row{display:flex;gap:8px;margin-top:8px;}
+  .setup-input-row input{flex:1;background:var(--steel-700);border:1px solid var(--steel-600);color:var(--paper);padding:9px 12px;border-radius:4px;font-size:13px;font-family:'Courier New',monospace;}
+  .setup-input-row input:focus{outline:none;border-color:var(--gauge-amber);}
+  .setup-input-row input::placeholder{color:var(--steel-600);}
+  #setup-error{display:none;color:var(--gauge-red);font-size:12.5px;margin-top:8px;}
+
+  /* EMPTY STATE */
+  .empty-gsc{text-align:center;padding:48px 20px;color:var(--paper-dim);}
+  .empty-gsc .big-icon{font-size:40px;margin-bottom:12px;opacity:.5;}
+  .empty-gsc p{font-size:14px;line-height:1.6;}
+
+  /* TABLE SCROLL WRAPPER */
+  .table-scroll{overflow-x:auto;}
+
+  /* TOOLTIP */
+  [data-tip]{position:relative;cursor:help;}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--steel-600);color:var(--paper);font-size:11px;padding:5px 9px;border-radius:4px;white-space:nowrap;z-index:10;pointer-events:none;}
+
+  footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--steel-700);font-size:11.5px;color:var(--paper-dim);}
+  ::placeholder{color:var(--steel-600);}
+  @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr);}.gsc-metrics{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- SETUP OVERLAY -->
+  <div id="setup-overlay">
+    <div class="setup-box">
+      <h2>Connect Google Search Console</h2>
+      <p class="setup-sub">Takes about 5 minutes. You'll get exact ranking positions, impressions, and click data pulled live from your GSC property.</p>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Open Google Cloud Console</strong>
+          <p>Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> and create a new project (or select an existing one).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Enable the Search Console API</strong>
+          <p>In the project, go to <b>APIs &amp; Services → Library</b>, search for "Google Search Console API", and click Enable.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Create OAuth credentials</strong>
+          <p>Go to <b>APIs &amp; Services → Credentials → Create Credentials → OAuth client ID</b>. Choose <b>Web application</b>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>Add this page as an authorised JavaScript origin</strong>
+          <p>Under "Authorised JavaScript origins", add the URL below exactly as shown:</p>
+          <div class="origin-box" id="origin-display">detecting…</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <strong>Paste your OAuth Client ID here</strong>
+          <p>Copy the Client ID (ends in <code style="color:var(--gauge-amber)">.apps.googleusercontent.com</code>) and paste it below.</p>
+          <div class="setup-input-row">
+            <input id="client-id-input" type="text" placeholder="1234567890-abc123.apps.googleusercontent.com" />
+            <button class="primary" onclick="saveClientId()">Save &amp; Connect</button>
+          </div>
+          <div id="setup-error">Could not initialise with that Client ID — check it's correct and the origin above is registered.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--steel-700);display:flex;justify-content:space-between;align-items:center;">
+        <span class="note" style="font-size:12px;">Client ID is saved in this browser only. Tokens are never stored.</span>
+        <button onclick="closeSetup()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <div class="brand-mark">▣ Loadmass.com.au — Search Visibility</div>
+      <h1>SEO &amp; Keyword Gauge</h1>
+      <div class="sub">Live ranking positions, impressions and click data from Google Search Console, layered over research-based gap analysis.</div>
+    </div>
+    <div class="header-right">
+      <div class="updated">Snapshot taken<br><b id="snapshotDate">25 Jun 2026</b></div>
+      <div class="gsc-badge" id="gsc-badge" onclick="handleBadgeClick()">
+        <div class="dot"></div>
+        <span id="gsc-badge-label">Connect Search Console</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- STAT STRIP -->
+  <div class="stats">
+    <div class="stat green"><div class="num" id="stat-win">3</div><div class="lbl">Ranking well</div></div>
+    <div class="stat amber"><div class="num" id="stat-watch">4</div><div class="lbl">To watch</div></div>
+    <div class="stat red"><div class="num" id="stat-gap">7</div><div class="lbl">Gap — not visible</div></div>
+    <div class="stat blue"><div class="num" id="stat-clicks">—</div><div class="lbl">GSC clicks (90d)</div><div class="sub-num" id="stat-clicks-sub"></div></div>
+    <div class="stat"><div class="num" id="stat-avg-pos">—</div><div class="lbl">Avg. position</div><div class="sub-num" id="stat-pos-sub"></div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" data-tab="keywords">Keyword Rankings</div>
+    <div class="tab gsc-tab" data-tab="gsc">GSC Live Data<span class="live-dot"></span></div>
+    <div class="tab" data-tab="gaps">Content Gaps</div>
+    <div class="tab" data-tab="competitors">Competitor Landscape</div>
+    <div class="tab" data-tab="notes">Method &amp; Notes</div>
+  </div>
+
+  <!-- ── TAB: KEYWORD RANKINGS ── -->
+  <div class="panel active" id="panel-keywords">
+    <div class="section-title">Where Loadmass currently shows up</div>
+    <div class="table-scroll">
+    <table id="kw-table">
+      <thead>
+        <tr>
+          <th style="width:22%">Keyword</th>
+          <th style="width:10%">Signal</th>
+          <th style="width:9%" data-tip="Average position in Google search results (90 days)">GSC Pos.</th>
+          <th style="width:8%" data-tip="Total impressions in 90 days">Impr.</th>
+          <th style="width:7%" data-tip="Total clicks in 90 days">Clicks</th>
+          <th style="width:24%">Who's showing up</th>
+          <th>Read</th>
+        </tr>
+      </thead>
+      <tbody id="kw-body"></tbody>
+    </table>
+    </div>
+
+    <div class="note" style="margin-top:10px;">Add your own tracked terms — saved in this browser.</div>
+    <table id="customTable" style="margin-top:8px;">
+      <thead><tr><th style="width:26%">Keyword</th><th style="width:12%">Status</th><th style="width:30%">Notes</th><th style="width:20%"></th></tr></thead>
+      <tbody id="customRows"></tbody>
+    </table>
+    <div class="btnrow">
+      <button class="primary" onclick="addRow()">+ Add keyword</button>
+      <button onclick="exportCustom()">Export custom CSV</button>
+    </div>
+  </div>
+
+  <!-- ── TAB: GSC LIVE DATA ── -->
+  <div class="panel" id="panel-gsc">
+    <div id="gsc-empty" class="empty-gsc">
+      <div class="big-icon">📡</div>
+      <p>Connect Google Search Console using the button in the top-right corner<br>to see live ranking data for loadmass.com.au.</p>
+      <button class="primary" style="margin-top:12px;" onclick="handleBadgeClick()">Connect Search Console</button>
+    </div>
+
+    <div id="gsc-data-view" style="display:none;">
+      <div class="filter-row">
+        <select id="site-select" onchange="onSiteChange()"></select>
+        <div class="seg-btns">
+          <button class="seg-btn active" data-days="7" onclick="setDateRange(this,7)">7d</button>
+          <button class="seg-btn" data-days="28" onclick="setDateRange(this,28)">28d</button>
+          <button class="seg-btn" data-days="90" onclick="setDateRange(this,90)">90d</button>
+        </div>
+        <input id="gsc-filter" type="text" placeholder="Filter queries…" oninput="renderGSCTable()">
+        <button onclick="exportGSC()">Export CSV</button>
+        <button id="gsc-refresh-btn" onclick="refreshGSC()">↻ Refresh</button>
+      </div>
+
+      <div class="gsc-metrics">
+        <div class="gsc-metric"><div class="m-num" id="gm-clicks">—</div><div class="m-lbl">Total clicks</div></div>
+        <div class="gsc-metric"><div class="m-num" id="gm-impr">—</div><div class="m-lbl">Impressions</div></div>
+        <div class="gsc-metric"><div class="m-num" id="gm-ctr">—</div><div class="m-lbl">Avg. CTR</div></div>
+        <div class="gsc-metric"><div class="m-num" id="gm-pos">—</div><div class="m-lbl">Avg. position</div></div>
+      </div>
+
+      <div class="table-scroll">
+      <table id="gsc-table">
+        <thead>
+          <tr>
+            <th onclick="sortGSC('query')" style="width:38%">Query <span class="sort-arrow">↕</span></th>
+            <th onclick="sortGSC('clicks')" style="width:12%">Clicks <span class="sort-arrow">↕</span></th>
+            <th onclick="sortGSC('impressions')" style="width:14%">Impressions <span class="sort-arrow">↕</span></th>
+            <th onclick="sortGSC('ctr')" style="width:12%">CTR <span class="sort-arrow">↕</span></th>
+            <th onclick="sortGSC('position')" style="width:12%">Avg. Pos. <span class="sort-arrow">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="gsc-body"></tbody>
+      </table>
+      </div>
+      <div id="gsc-row-count" class="note" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: CONTENT GAPS ── -->
+  <div class="panel" id="panel-gaps">
+    <div class="section-title">Highest-priority content gaps</div>
+    <div id="gap-list"></div>
+  </div>
+
+  <!-- ── TAB: COMPETITOR LANDSCAPE ── -->
+  <div class="panel" id="panel-competitors">
+    <div class="section-title">Who keeps showing up instead of Loadmass</div>
+    <div class="comp-grid">
+      <div class="comp-card"><h4>SmartTech Australia</h4><div class="domain">smarttechaustralia.com.au</div><div class="blurb">Authorised Loadrite dealer; strong NMI/Legal-for-Trade and compliance content across mining/waste.</div></div>
+      <div class="comp-card"><h4>Diverseco</h4><div class="domain">diverseco.com.au</div><div class="blurb">Broad supplier with dedicated sector pages (BinWeigh, VanWeigh, TruckWeigh) — appears across almost every category term.</div></div>
+      <div class="comp-card"><h4>SWIA</h4><div class="domain">swia.com.au</div><div class="blurb">Owns weighbridge/compliance educational content and comparison-style posts.</div></div>
+      <div class="comp-card"><h4>Airtec / Smart OBM</h4><div class="domain">smartobm.com</div><div class="blurb">Direct Category B competitor with strong TCA-approval messaging.</div></div>
+      <div class="comp-card"><h4>Right Weigh / V-DAQ</h4><div class="domain">rightweigh.com.au</div><div class="blurb">Telematics-paired Smart OBM offering, frequently featured in TCA's own news content.</div></div>
+      <div class="comp-card"><h4>FleetWEIGH</h4><div class="domain">marketing.fleetweigh.com.au</div><div class="blurb">Bluetooth/app-based OBM positioning aimed squarely at fleet-wide standardisation.</div></div>
+      <div class="comp-card"><h4>HAUL WEIGH</h4><div class="domain">haulweigh.com</div><div class="blurb">Australian-made in-cab display scales, ranks for "truck weight scales" queries.</div></div>
+      <div class="comp-card"><h4>LoadSMART</h4><div class="domain">loadsmartscales.com</div><div class="blurb">Long-standing player since 2007, also Category B type-approved.</div></div>
+      <div class="comp-card"><h4>Atlas Weighing</h4><div class="domain">atlasweighing.com.au</div><div class="blurb">Family-owned manufacturer since 1988; broad weighing-equipment range, not OBM-exclusive.</div></div>
+      <div class="comp-card"><h4>Australian Weighing Equipment (AWE)</h4><div class="domain">awe.com.au</div><div class="blurb">40-year manufacturer ranking for generic "on-board weighing system" search.</div></div>
+      <div class="comp-card"><h4>Aptella (Topcon/Loadmaster)</h4><div class="domain">aptella.com</div><div class="blurb">Mining/construction-leaning, ranks for excavator/loader weighing terms Loadmass doesn't target.</div></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: NOTES ── -->
+  <div class="panel" id="panel-notes">
+    <div class="section-title">How this was put together</div>
+    <p class="note" style="font-size:13.5px;line-height:1.6;">The keyword signals in the Rankings tab come from two sources: (1) the original research snapshot taken 25 Jun 2026, which checked page-one results for each term; and (2) live Google Search Console data when connected, which adds real average-position, impressions and click data directly from Google for loadmass.com.au.</p>
+    <p class="note" style="font-size:13.5px;line-height:1.6;">GSC position matching works by checking whether any GSC query contains or closely matches the tracked keyword term. Where no GSC match is found, the cell shows "—" — meaning Google has not recorded measurable impressions for that term (confirms the Gap signal).</p>
+    <div class="section-title">Suggested next actions</div>
+    <ol class="note" style="font-size:13.5px;line-height:1.8;padding-left:18px;">
+      <li>Build the "Smart OBM Category B" explainer page — Priority 1 gap, directly tied to an existing certification.</li>
+      <li>Build a Chain of Responsibility compliance hub aimed at fleet managers and councils.</li>
+      <li>Split the homepage's combined pitch into sector pages: road transport, waste management, mining &amp; construction.</li>
+      <li>Add 2–3 comparison posts (OBM vs weighbridge, Category A vs B vs C, install cost guide).</li>
+      <li>Add location pages for Sydney, Canberra, Mid North Coast, Central West NSW.</li>
+    </ol>
+    <div class="section-title">GSC setup &amp; troubleshooting</div>
+    <p class="note" style="font-size:13.5px;line-height:1.6;">If you see a "popup blocked" message when connecting, allow popups for this page and try again. If you get an OAuth error, make sure the exact origin shown in the setup screen is listed under <i>Authorised JavaScript origins</i> in your Google Cloud Console credentials — it must match character-for-character. Tokens expire after 1 hour; clicking the badge again will silently renew.</p>
+  </div>
+
+  <footer>
+    Loadmass SEO Gauge v2 · GSC data is fetched live and never stored · research snapshot: 25 Jun 2026
+  </footer>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// KEYWORD DATA
+// ─────────────────────────────────────────────
+const KEYWORDS = [
+  { term:'loadmass loadmass.com.au', display:'loadmass / loadmass.com.au', status:'win', competitors:'Loadmass owns this — branded search is solid.', note:'Defend it: keep NAP, reviews, socials consistent.' },
+  { term:'on-board mass obm solutions', display:'on-board mass (OBM) solutions', status:'win', competitors:'Loadmass appears alongside TCA\'s own definitions page.', note:'One of the few category terms it\'s found on.' },
+  { term:'isuzu on-board scale infotainment obm', display:'Isuzu on-board scale / infotainment OBM', status:'win', competitors:'Niche enough that the Isuzu integration angle is distinctive.', note:'Good — keep building this unique angle.' },
+  { term:'on-board weighing system australia', display:'on-board weighing system Australia', status:'watch', competitors:'AWE, SmartTech/Loadrite, Diverseco, Atlas Weighing, Aptella dominate page one.', note:'Loadmass not visible in top results.' },
+  { term:'truck weight scales australia fleet', display:'truck weight scales Australia / fleet', status:'gap', competitors:'FleetWEIGH, HAUL WEIGH, LoadSMART, Right Weigh, Diverseco, SWIA.', note:'Crowded category — Loadmass absent.' },
+  { term:'smart obm category b tca type-approved', display:'Smart OBM Category B / TCA type-approved', status:'gap', competitors:'TCA.gov.au itself, Airtec, Right Weigh, Knorr-Bremse, V-DAQ own this query.', note:'Big miss — Loadmass IS Category B certified but isn\'t found here.' },
+  { term:'chain of responsibility cor weighing compliance', display:'Chain of Responsibility (CoR) weighing compliance', status:'gap', competitors:'SWIA and Diverseco run explainer content tied to CoR law.', note:'High-intent B2B/fleet-manager query, no Loadmass content found.' },
+  { term:'truck scale installation sydney nsw', display:'truck scale installation Sydney/NSW', status:'watch', competitors:'Generic national suppliers outrank local-intent results.', note:'Local-service pages would help here.' },
+  { term:'waste management on-board weighing', display:'waste management on-board weighing', status:'gap', competitors:'Diverseco\'s BinWeigh and Loadrite/SmartTech dominate.', note:'Loadmass serves this sector but isn\'t visible for it.' },
+  { term:'weighbridge vs portable truck scales comparison', display:'weighbridge vs portable truck scales', status:'gap', competitors:'SWIA owns this comparison/educational query.', note:'Comparison-style content is an easy win to copy the pattern of.' },
+  { term:'multi-combination vehicle weighing b-double road train', display:'multi-combination vehicle weighing (B-double / road train)', status:'watch', competitors:'Airtec and Atlas Weighing surface for "trailer combination" variants.', note:'Loadmass mentions this on-site but doesn\'t rank distinctly.' },
+  { term:'obm calibration servicing australia', display:'OBM calibration / servicing Australia', status:'gap', competitors:'SWIA, Diverseco, Loadrite/SmartTech show service-focused pages.', note:'Recurring-revenue query — no dedicated Loadmass page found.' },
+  { term:'mining construction on-board weighing', display:'mining & construction on-board weighing', status:'gap', competitors:'Aptella (Topcon/Loadmaster), Loadrite/SmartTech, Atlas Weighing.', note:'Loadmass lists mining as a market but has no dedicated page.' },
+  { term:'council government fleet weighing compliance', display:'council / government fleet weighing compliance', status:'watch', competitors:'No single dominant result — open field.', note:'Loadmass already claims govt/council clients — worth a dedicated page.' },
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let accessToken = null;
+let tokenClient = null;
+let gscRows = [];          // raw rows from GSC API
+let gscSites = [];
+let selectedSite = '';
+let activeDays = 90;
+let gscSortKey = 'clicks';
+let gscSortDir = -1;       // -1 = desc
+let customData = [];
+
+try { customData = JSON.parse(localStorage.getItem('lm_custom_kw') || '[]'); } catch(e) {}
+
+// ─────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+// ─────────────────────────────────────────────
+// SETUP OVERLAY
+// ─────────────────────────────────────────────
+function showSetup() {
+  document.getElementById('setup-overlay').classList.add('visible');
+  const origin = window.location.origin === 'null' ? window.location.href.split('/').slice(0,3).join('/') : window.location.origin;
+  document.getElementById('origin-display').textContent = origin || 'file:// — use a local server instead (see Notes tab)';
+  const saved = localStorage.getItem('lm_gsc_client_id') || '';
+  if (saved) document.getElementById('client-id-input').value = saved;
+}
+function closeSetup() {
+  document.getElementById('setup-overlay').classList.remove('visible');
+}
+
+function saveClientId() {
+  const id = document.getElementById('client-id-input').value.trim();
+  if (!id || !id.includes('.apps.googleusercontent.com')) {
+    showSetupError('That doesn\'t look like a valid OAuth Client ID. It should end in .apps.googleusercontent.com');
+    return;
+  }
+  localStorage.setItem('lm_gsc_client_id', id);
+  closeSetup();
+  initTokenClient(id);
+  requestToken();
+}
+
+function showSetupError(msg) {
+  const el = document.getElementById('setup-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+function handleBadgeClick() {
+  if (accessToken) {
+    // Already connected — offer disconnect
+    if (confirm('Disconnect from Search Console? (You can reconnect any time)')) {
+      accessToken = null;
+      gscRows = [];
+      setBadge('disconnected');
+      renderKeywordsTable();
+      updateSummaryStats();
+      document.getElementById('gsc-data-view').style.display = 'none';
+      document.getElementById('gsc-empty').style.display = 'block';
+      document.querySelector('.tab.gsc-tab').classList.remove('has-data');
+    }
+    return;
+  }
+  const savedId = localStorage.getItem('lm_gsc_client_id');
+  if (!savedId) { showSetup(); return; }
+  if (!tokenClient) initTokenClient(savedId);
+  requestToken();
+}
+
+function initTokenClient(clientId) {
+  if (typeof google === 'undefined' || !google.accounts) {
+    alert('Google Identity Services script hasn\'t loaded yet — check your internet connection and try again.');
+    return;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/webmasters.readonly',
+    callback: handleTokenResponse,
+    error_callback: (err) => {
+      console.error('GSC auth error:', err);
+      setBadge('disconnected');
+      if (err.type === 'popup_blocked_by_browser') {
+        alert('Popup was blocked. Please allow popups for this page and try again.');
+      } else {
+        showSetup();
+        showSetupError('OAuth error: ' + (err.message || err.type || JSON.stringify(err)));
+      }
+    }
+  });
+}
+
+function requestToken() {
+  if (!tokenClient) return;
+  setBadge('loading');
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+function handleTokenResponse(resp) {
+  if (resp.error) {
+    console.error('Token error:', resp);
+    setBadge('disconnected');
+    return;
+  }
+  accessToken = resp.access_token;
+  setBadge('connected');
+  loadGSCSites();
+}
+
+function setBadge(state) {
+  const badge = document.getElementById('gsc-badge');
+  const label = document.getElementById('gsc-badge-label');
+  badge.className = 'gsc-badge';
+  if (state === 'connected') {
+    badge.classList.add('connected');
+    label.textContent = 'Search Console connected';
+  } else if (state === 'loading') {
+    badge.classList.add('loading');
+    label.textContent = 'Connecting…';
+  } else {
+    label.textContent = 'Connect Search Console';
+  }
+}
+
+// ─────────────────────────────────────────────
+// GSC API
+// ─────────────────────────────────────────────
+async function gscFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if (res.status === 401) {
+    // Token expired — re-request silently
+    accessToken = null;
+    setBadge('disconnected');
+    throw new Error('Token expired. Click the badge to reconnect.');
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error('GSC API ' + res.status + ': ' + text);
+  }
+  return res.json();
+}
+
+async function loadGSCSites() {
+  try {
+    const data = await gscFetch('https://www.googleapis.com/webmasters/v3/sites');
+    gscSites = (data.siteEntry || []).map(s => s.siteUrl);
+    if (gscSites.length === 0) {
+      alert('No Search Console properties found for this Google account. Make sure you\'re signing in with the account that has access to loadmass.com.au in Search Console.');
+      setBadge('disconnected');
+      return;
+    }
+    populateSiteSelect();
+    // Auto-select loadmass property if present
+    const lm = gscSites.find(s => s.toLowerCase().includes('loadmass'));
+    selectedSite = lm || gscSites[0];
+    document.getElementById('site-select').value = selectedSite;
+    await fetchPerformanceData();
+  } catch(e) {
+    console.error(e);
+    alert('Error loading Search Console sites: ' + e.message);
+    setBadge('disconnected');
+  }
+}
+
+function populateSiteSelect() {
+  const sel = document.getElementById('site-select');
+  sel.innerHTML = gscSites.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function onSiteChange() {
+  selectedSite = document.getElementById('site-select').value;
+  fetchPerformanceData();
+}
+
+async function fetchPerformanceData() {
+  if (!accessToken) return;
+  setBadge('loading');
+  const end = new Date();
+  const start = new Date(Date.now() - activeDays * 86400000);
+  const fmt = d => d.toISOString().split('T')[0];
+
+  try {
+    const data = await gscFetch(
+      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(selectedSite) + '/searchAnalytics/query',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          startDate: fmt(start),
+          endDate: fmt(end),
+          dimensions: ['query'],
+          rowLimit: 5000,
+          startRow: 0
+        })
+      }
+    );
+    gscRows = data.rows || [];
+    setBadge('connected');
+    document.querySelector('.tab.gsc-tab').classList.add('has-data');
+    document.getElementById('gsc-empty').style.display = 'none';
+    document.getElementById('gsc-data-view').style.display = 'block';
+    renderGSCMetrics();
+    renderGSCTable();
+    renderKeywordsTable();
+    updateSummaryStats();
+  } catch(e) {
+    console.error(e);
+    alert('Error fetching Search Console data: ' + e.message);
+    setBadge('connected');
+  }
+}
+
+async function refreshGSC() {
+  await fetchPerformanceData();
+}
+
+// ─────────────────────────────────────────────
+// GSC TABLE & METRICS
+// ─────────────────────────────────────────────
+function renderGSCMetrics() {
+  const totClicks = gscRows.reduce((s,r) => s + r.clicks, 0);
+  const totImpr   = gscRows.reduce((s,r) => s + r.impressions, 0);
+  const avgCtr    = totImpr > 0 ? (totClicks / totImpr * 100) : 0;
+  const avgPos    = gscRows.length > 0
+    ? gscRows.reduce((s,r) => s + r.position, 0) / gscRows.length
+    : 0;
+
+  document.getElementById('gm-clicks').textContent = fmtNum(totClicks);
+  document.getElementById('gm-impr').textContent   = fmtNum(totImpr);
+  document.getElementById('gm-ctr').textContent    = avgCtr.toFixed(1) + '%';
+  document.getElementById('gm-pos').textContent    = avgPos.toFixed(1);
+
+  // update header stats
+  document.getElementById('stat-clicks').textContent   = fmtNum(totClicks);
+  document.getElementById('stat-clicks-sub').textContent = activeDays + ' days';
+  document.getElementById('stat-avg-pos').textContent  = avgPos.toFixed(1);
+  document.getElementById('stat-pos-sub').textContent  = 'avg across all queries';
+}
+
+function renderGSCTable() {
+  const filter = (document.getElementById('gsc-filter').value || '').toLowerCase();
+  let rows = gscRows;
+  if (filter) rows = rows.filter(r => r.keys[0].toLowerCase().includes(filter));
+
+  rows = [...rows].sort((a, b) => {
+    const va = gscSortKey === 'query' ? a.keys[0] : a[gscSortKey];
+    const vb = gscSortKey === 'query' ? b.keys[0] : b[gscSortKey];
+    if (typeof va === 'string') return gscSortDir * va.localeCompare(vb);
+    return gscSortDir * (va - vb);
+  });
+
+  const body = document.getElementById('gsc-body');
+  body.innerHTML = rows.slice(0, 500).map(r => {
+    const pos = r.position;
+    const posClass = pos <= 10 ? 'top10' : pos <= 30 ? 'top30' : 'beyond';
+    return `<tr>
+      <td>${escHtml(r.keys[0])}</td>
+      <td class="gsc-cell"><span class="gsc-num">${fmtNum(r.clicks)}</span></td>
+      <td class="gsc-cell"><span class="gsc-num">${fmtNum(r.impressions)}</span></td>
+      <td class="gsc-cell"><span class="gsc-num">${(r.ctr*100).toFixed(1)}%</span></td>
+      <td class="gsc-cell"><span class="pos-badge ${posClass}">${pos.toFixed(1)}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('gsc-row-count').textContent =
+    rows.length > 500 ? `Showing top 500 of ${fmtNum(rows.length)} queries` : `${fmtNum(rows.length)} queries`;
+}
+
+function sortGSC(key) {
+  if (gscSortKey === key) { gscSortDir *= -1; }
+  else { gscSortKey = key; gscSortDir = key === 'query' ? 1 : -1; }
+  // Update header indicators
+  document.querySelectorAll('#gsc-table th').forEach(th => th.classList.remove('sorted'));
+  event.currentTarget.classList.add('sorted');
+  renderGSCTable();
+}
+
+function setDateRange(btn, days) {
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeDays = days;
+  fetchPerformanceData();
+}
+
+function exportGSC() {
+  const filter = (document.getElementById('gsc-filter').value || '').toLowerCase();
+  let rows = gscRows;
+  if (filter) rows = rows.filter(r => r.keys[0].toLowerCase().includes(filter));
+  let csv = 'Query,Clicks,Impressions,CTR,Avg Position\n';
+  rows.forEach(r => {
+    csv += `"${r.keys[0]}",${r.clicks},${r.impressions},${(r.ctr*100).toFixed(2)},${r.position.toFixed(1)}\n`;
+  });
+  downloadCSV(csv, 'loadmass-gsc-' + activeDays + 'd.csv');
+}
+
+// ─────────────────────────────────────────────
+// KEYWORD TABLE (with GSC merge)
+// ─────────────────────────────────────────────
+function findGSCMatch(kwTerms) {
+  // kwTerms is a normalised string of the keyword
+  const words = kwTerms.toLowerCase().split(/\s+/).filter(Boolean);
+  // score each GSC row
+  let best = null, bestScore = 0;
+  for (const row of gscRows) {
+    const q = row.keys[0].toLowerCase();
+    let score = 0;
+    for (const w of words) { if (q.includes(w)) score++; }
+    if (score > bestScore) { bestScore = score; best = row; }
+  }
+  // require at least half the words to match
+  return bestScore >= Math.ceil(words.length * 0.5) ? best : null;
+}
+
+function renderKeywordsTable() {
+  const body = document.getElementById('kw-body');
+  const hasGSC = gscRows.length > 0;
+
+  body.innerHTML = KEYWORDS.map(kw => {
+    let match = null;
+    if (hasGSC) match = findGSCMatch(kw.term);
+
+    // Derive effective status from GSC position if available
+    let status = kw.status;
+    if (match) {
+      if (match.position <= 10) status = 'win';
+      else if (match.position <= 30) status = 'watch';
+      else status = 'gap';
+    }
+
+    const pillMap = { win:'<span class="pill win">Strong</span>', watch:'<span class="pill watch">Watch</span>', gap:'<span class="pill gap">Gap</span>' };
+
+    let posCell = '<td class="gsc-cell note">—</td>';
+    let imprCell = '<td class="gsc-cell note">—</td>';
+    let clickCell = '<td class="gsc-cell note">—</td>';
+
+    if (match) {
+      const pos = match.position;
+      const pc = pos <= 10 ? 'top10' : pos <= 30 ? 'top30' : 'beyond';
+      posCell   = `<td class="gsc-cell"><span class="pos-badge ${pc}">${pos.toFixed(1)}</span></td>`;
+      imprCell  = `<td class="gsc-cell"><span class="gsc-num">${fmtNum(match.impressions)}</span></td>`;
+      clickCell = `<td class="gsc-cell"><span class="gsc-num">${fmtNum(match.clicks)}</span></td>`;
+    }
+
+    return `<tr>
+      <td><strong style="color:#fff;font-size:13px;">${escHtml(kw.display)}</strong></td>
+      <td>${pillMap[status] || pillMap.gap}</td>
+      ${posCell}${imprCell}${clickCell}
+      <td class="note">${escHtml(kw.competitors)}</td>
+      <td class="note">${escHtml(kw.note)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateSummaryStats() {
+  const kwStatuses = KEYWORDS.map(kw => {
+    if (gscRows.length === 0) return kw.status;
+    const match = findGSCMatch(kw.term);
+    if (!match) return kw.status;
+    return match.position <= 10 ? 'win' : match.position <= 30 ? 'watch' : 'gap';
+  });
+  document.getElementById('stat-win').textContent   = kwStatuses.filter(s => s === 'win').length;
+  document.getElementById('stat-watch').textContent = kwStatuses.filter(s => s === 'watch').length;
+  document.getElementById('stat-gap').textContent   = kwStatuses.filter(s => s === 'gap').length;
+}
+
+// ─────────────────────────────────────────────
+// CUSTOM KEYWORD TRACKER
+// ─────────────────────────────────────────────
+function renderCustomRows() {
+  const body = document.getElementById('customRows');
+  body.innerHTML = '';
+  customData.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="editable" contenteditable="true" data-i="${i}" data-f="kw">${escHtml(row.kw)}</span></td>
+      <td><span class="editable" contenteditable="true" data-i="${i}" data-f="status">${escHtml(row.status)}</span></td>
+      <td><span class="editable" contenteditable="true" data-i="${i}" data-f="notes">${escHtml(row.notes)}</span></td>
+      <td><button onclick="removeRow(${i})">Remove</button></td>`;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll('.editable').forEach(el => {
+    el.addEventListener('blur', () => {
+      customData[el.dataset.i][el.dataset.f] = el.textContent;
+      saveCustom();
+    });
+  });
+}
+
+function addRow() {
+  const kw = prompt('Keyword to track:');
+  if (!kw) return;
+  customData.push({ kw, status: 'Watch', notes: 'Click to edit notes' });
+  saveCustom();
+  renderCustomRows();
+}
+function removeRow(i) {
+  customData.splice(i, 1);
+  saveCustom();
+  renderCustomRows();
+}
+function saveCustom() {
+  try { localStorage.setItem('lm_custom_kw', JSON.stringify(customData)); } catch(e) {}
+}
+function exportCustom() {
+  let csv = 'Keyword,Status,Notes\n';
+  customData.forEach(r => { csv += `"${r.kw}","${r.status}","${r.notes}"\n`; });
+  downloadCSV(csv, 'loadmass-custom-keywords.csv');
+}
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function fmtNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return String(n);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ─────────────────────────────────────────────
+// CONTENT GAPS
+// ─────────────────────────────────────────────
+const GAPS = [
+  { id:'gap0', priority:'Priority 1', title:'"Smart OBM Category B / TCA type-approved" content', body:'Loadmass already holds this certification but loses the search conversation to TCA\'s own site and to Airtec, Right Weigh, V-DAQ and Knorr-Bremse, all of whom publish dedicated explainer pages about their type-approval. A clear "What is Smart OBM Category B and why Loadmass holds it" page would close this gap directly.' },
+  { id:'gap1', priority:'Priority 1', title:'Chain of Responsibility (CoR) compliance hub', body:'Fleet managers actively search this exact compliance language. SWIA and Diverseco both run educational hub pages targeting it. This is a natural fit for Loadmass\'s government/council client base and would also feed the "council fleet compliance" watch-list term.' },
+  { id:'gap2', priority:'Priority 2', title:'Sector landing pages (waste, mining & construction)', body:'Loadmass names road transport, waste management, and mining/construction as core industries, but competitors (Diverseco\'s BinWeigh, Aptella/Topcon, SmartTech/Loadrite) have dedicated pages per sector that out-rank Loadmass\'s single combined homepage message.' },
+  { id:'gap3', priority:'Priority 2', title:'Comparison / educational content', body:'"Weighbridge vs portable truck scales" (SWIA) and similar comparison posts perform well because they answer a buyer\'s actual decision question. Loadmass has no equivalent — e.g. "OBM vs weighbridge," "Category A vs B vs C," "what does it cost to fit an on-board scale."' },
+  { id:'gap4', priority:'Priority 3', title:'Local-intent service pages', body:'Searches like "truck scale installation Sydney" or "OBM calibration NSW" favour locally-specific pages. Loadmass services Sydney, Canberra, Mid North Coast and Central West NSW but doesn\'t appear to have pages built around those locations specifically.' },
+  { id:'gap5', priority:'Priority 3', title:'Calibration & servicing content', body:'Recurring revenue queries ("OBM calibration Australia," "how often does a truck scale need calibrating") are owned by SWIA and Diverseco\'s service pages. This is low-competition, high-relevance territory for Loadmass\'s existing calibration/maintenance offering.' },
+];
+
+let gapDone = {};
+try { gapDone = JSON.parse(localStorage.getItem('lm_gap_done') || '{}'); } catch(e) {}
+
+function renderGaps() {
+  const list = document.getElementById('gap-list');
+  list.innerHTML = GAPS.map(g => {
+    const done = !!gapDone[g.id];
+    return `<div class="gap-item${done ? ' done' : ''}" id="${g.id}">
+      <button class="done-btn" onclick="toggleGap('${g.id}')" title="${done ? 'Mark incomplete' : 'Mark complete'}">✓</button>
+      <div class="gap-body">
+        <span class="priority">${escHtml(g.priority)}</span>
+        <h4>${escHtml(g.title)}</h4>
+        <p>${escHtml(g.body)}</p>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleGap(id) {
+  gapDone[id] = !gapDone[id];
+  try { localStorage.setItem('lm_gap_done', JSON.stringify(gapDone)); } catch(e) {}
+  renderGaps();
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+(function init() {
+  renderKeywordsTable();
+  renderCustomRows();
+  renderGaps();
+  // Auto-init token client if client ID already saved
+  window.addEventListener('load', () => {
+    const saved = localStorage.getItem('lm_gsc_client_id');
+    if (saved && typeof google !== 'undefined' && google.accounts) {
+      initTokenClient(saved);
+    }
+  });
+  // GIS script might load after window.load
+  document.querySelector('script[src*="gsi"]').addEventListener('load', () => {
+    const saved = localStorage.getItem('lm_gsc_client_id');
+    if (saved) initTokenClient(saved);
+  });
+})();
+</script>
+</body>
+</html>
